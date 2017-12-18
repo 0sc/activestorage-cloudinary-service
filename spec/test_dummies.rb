@@ -12,8 +12,8 @@ module DummyCloudinary
       attr_accessor mtd
     end
 
-    def config
-      yield(self)
+    def config(options)
+      options.each { |k, v| send("#{k}=", v) }
     end
   end
 

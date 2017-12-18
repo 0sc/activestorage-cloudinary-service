@@ -1,20 +1,18 @@
+require 'cloudinary'
 require 'open-uri'
 
 module ActiveStorage
   class Service::CloudinaryService < Service
     # FIXME: implement setup for private resource type
+    # FIXME: allow configuration via cloudinary url
     def initialize(cloud_name:, api_key:, api_secret:, options: {})
-      Cloudinary.config do |config|
-        config.cloud_name = cloud_name
-        config.api_key = api_key
-        config.api_secret = api_secret
-        config.cdn_subdomain = options[:cdn_subdomain] unless options['cdn_subdomain'].nil?
-        config.private_cdn = options[:private_cdn] unless options['private_cdn'].nil?
-        config.cname = options[:cname] unless options['cname'].nil?
-        config.static_image_support = options[:static_image_support] unless options['static_image_support'].nil?
-        config.enhance_image_tag = options[:enhance_image_tag] unless options['enhance_image_tag'].nil?
-        config.secure = options[:secure] unless options['secure'].nil?
-      end
+      options.merge!(
+        cloud_name: cloud_name,
+        api_key: api_key,
+        api_secret: api_secret
+      )
+      Cloudinary.config(options)
+      # Cloudinary.config_from_url(url)
     end
 
     def upload(key, io, checksum: nil)
