@@ -24,10 +24,20 @@ module ActiveStorage
     end
 
     # Return the content of the file at the +key+.
-    # FIXME: Download in chunks when given a block.
     def download(key)
-      instrument :download, key: key do
-        open(url_for_public_id(key))
+      tmp_file = open(url_for_public_id(key))
+      if block_given?
+        instrument :streaming_download, key: key do
+          File.open(tmp_file, 'rb') do |file|
+            while (data = file.read(64.kilobytes))
+              yield data
+            end
+          end
+        end
+      else
+        instrument :download, key: key do
+          File.binread tmp_file
+        end
       end
     end
 
