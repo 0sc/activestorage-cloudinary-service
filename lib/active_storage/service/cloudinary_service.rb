@@ -2,6 +2,7 @@ require 'open-uri'
 
 module ActiveStorage
   class Service::CloudinaryService < Service
+    # FIXME: implement setup for private resource type
     def initialize(cloud_name:, api_key:, api_secret:, options: {})
       Cloudinary.config do |config|
         config.cloud_name = cloud_name
@@ -56,9 +57,15 @@ module ActiveStorage
     # Returns a signed, temporary URL for the file at the +key+. The URL will be valid for the amount
     # of seconds specified in +expires_in+. You most also provide the +disposition+ (+:inline+ or +:attachment+),
     # +filename+, and +content_type+ that you wish the file to be served with on request.
-    def url(key, _options = {})
+    def url(key, expires_in:, disposition:, filename:, content_type:)
       instrument :url, key: key do
-        url_for_public_id(key)
+        options = {
+          expires_in: expires_in,
+          content_type: content_type,
+          disposition: disposition,
+          filename: filename
+        }
+        signed_download_url_for_public_id(key, options)
       end
     end
 
@@ -66,10 +73,15 @@ module ActiveStorage
     # The URL will be valid for the amount of seconds specified in +expires_in+.
     # You must also provide the +content_type+, +content_length+, and +checksum+ of the file
     # that will be uploaded. All these attributes will be validated by the service upon upload.
-    def url_for_direct_upload(key, options = {})
+    def url_for_direct_upload(key, expires_in:, content_type:, content_length:, checksum:)
       instrument :url_for_direct_upload, key: key do
-        expires_at = Time.zone.now + options[:expires_in]
-        direct_upload_url_for_public_id(key, nil, expires_at: expires_at)
+        options = {
+          expires_in: expires_in,
+          content_type: content_type,
+          content_length: content_length,
+          checksum: checksum
+        }
+        direct_upload_url_for_public_id(key, options)
       end
     end
 
@@ -96,18 +108,41 @@ module ActiveStorage
       Cloudinary::Uploader.destroy(public_id)
     end
 
+    def url_for_public_id(public_id)
+      Cloudinary::Api.resource(public_id)['secure_url']
+    end
+
     # FIXME: Cloudinary Ruby SDK does't expose an api for signed upload url
     # The expected url is similar to the private_download_url
     # with download replaced with upload
-    def direct_upload_url_for_public_id(public_id, format, options)
+    def direct_upload_url_for_public_id(public_id, options)
       # allow the server to auto detect the resource_type
-      # if key is not specified, it defaults to 'image'
       options[:resource_type] ||= 'auto'
-      Cloudinary::Utils.private_download_url(public_id, format, options).sub(/download/, 'upload')
+      signed_download_url_for_public_id(public_id, options).sub(/download/, 'upload')
     end
 
-    def url_for_public_id(public_id)
-      Cloudinary::Api.resource(public_id)['secure_url']
+    def signed_download_url_for_public_id(public_id, options)
+      options[:resource_type] ||= resource_type(options[:content_type])
+      Cloudinary::Utils.private_download_url(
+        public_id,
+        resource_format(options),
+        signed_url_options(options)
+      )
+    end
+
+    def signed_url_options(options)
+      {
+        resource_type: (options[:resource_type] || 'auto'),
+        type: (options[:type] || 'upload'),
+        attachment: (options[:attachment] == :attachment),
+        expires_at: (Time.zone.now + options[:expires_in])
+      }
+    end
+
+    def resource_format(_options); end
+
+    def resource_type(content_type)
+      content_type.sub(%r{/.*$}, '')
     end
   end
 end
