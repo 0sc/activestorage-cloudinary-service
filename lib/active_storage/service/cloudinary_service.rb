@@ -59,8 +59,8 @@ module ActiveStorage
 
     # Return +true+ if a file exists at the +key+.
     def exist?(key)
-      instrument :exists?, key: key do
-        resource_exists_with_public_id(key)
+      instrument :exist?, key: key do
+        resource_exists_with_public_id?(key)
       end
     end
 
@@ -96,14 +96,14 @@ module ActiveStorage
     end
 
     # Returns a Hash of headers for +url_for_direct_upload+ requests.
-    def headers_for_direct_upload(key, _filename:, content_type:, _content_length:, _checksum:)
+    def headers_for_direct_upload(key, filename:, content_type:, content_length:, checksum:)
       { 'Content-Type' => content_type, 'X-Unique-Upload-Id' => key }
     end
 
     private
 
-    def resource_exists_with_public_id(public_id)
-      find_resource_with_public_id(public_id).present?
+    def resource_exists_with_public_id?(public_id)
+      !find_resource_with_public_id(public_id).empty?
     end
 
     def find_resource_with_public_id(public_id)
@@ -145,7 +145,7 @@ module ActiveStorage
         resource_type: (options[:resource_type] || 'auto'),
         type: (options[:type] || 'upload'),
         attachment: (options[:attachment] == :attachment),
-        expires_at: (Time.zone.now + options[:expires_in])
+        expires_at: (Time.now + options[:expires_in])
       }
     end
 
