@@ -1,4 +1,4 @@
-require "active_storage/cloudinary_service/version"
+require 'active_storage/service/version'
 
 module ActiveStorage
   module CloudinaryService

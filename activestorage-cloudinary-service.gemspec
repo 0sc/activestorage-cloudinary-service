@@ -1,17 +1,17 @@
 
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'active_storage/cloudinary_service/version'
+require 'active_storage/service/version'
 
 Gem::Specification.new do |spec|
   spec.name          = 'activestorage-cloudinary-service'
   spec.version       = ActiveStorage::CloudinaryService::VERSION
-  spec.authors       = [': Write your name']
-  spec.email         = ['osmond.oranagwa@andela.com']
+  spec.authors       = ['Oscar Oranagwa']
+  spec.email         = ['oskarromero@gmail.com']
 
-  spec.summary       = ': Write a short summary, because RubyGems requires one.'
+  spec.summary       = 'Rails ActiveStorage adapter for cloudinary'
   spec.description   = ': Write a longer description or delete this line.'
-  spec.homepage      = "TODO: Put your gem's website or public repo URL here."
+  spec.homepage      = 'https://github.com/0sc/activestorage-cloudinary-service'
   spec.license       = 'MIT'
 
   # Prevent pushing this gem to RubyGems.org. To allow pushes either set the 'allowed_push_host'
@@ -34,4 +34,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rake', '~> 10.0'
   spec.add_development_dependency 'pry'
   spec.add_development_dependency 'pry-nav'
+  spec.add_development_dependency 'rspec'
 end
