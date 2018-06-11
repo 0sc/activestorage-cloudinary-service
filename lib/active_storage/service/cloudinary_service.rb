@@ -17,7 +17,7 @@ module ActiveStorage
 
     def upload(key, io, checksum: nil)
       instrument :upload, key: key, checksum: checksum do
-        Cloudinary::Uploader.upload(io, public_id: key)
+        Cloudinary::Uploader.upload(io, public_id: key, resource_type: "auto")
       end
     end
 
