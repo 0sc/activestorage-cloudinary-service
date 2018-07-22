@@ -25,7 +25,8 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
 
   describe '#upload' do
     it 'calls the upload method on the cloudinary sdk with the given args' do
-      expect(Cloudinary::Uploader).to receive(:upload).with(file, public_id: key)
+      expect(Cloudinary::Uploader)
+        .to receive(:upload).with(file, public_id: key, resource_type: 'auto')
 
       subject.upload(key, file)
     end
