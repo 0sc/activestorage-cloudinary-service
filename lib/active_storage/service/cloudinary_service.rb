@@ -5,7 +5,7 @@ module ActiveStorage
   class Service::CloudinaryService < Service
     # FIXME: implement setup for private resource type
     # FIXME: allow configuration via cloudinary url
-    def initialize(cloud_name:, api_key:, api_secret:, options: {})
+    def initialize(cloud_name:, api_key:, api_secret:, **options)
       options.merge!(
         cloud_name: cloud_name,
         api_key: api_key,
