@@ -47,9 +47,9 @@ PLATFORMS
 DEPENDENCIES
   activestorage-cloudinary-service!
   bundler (~> 1.16)
-  cloudinary
+  cloudinary (~> 1.8.2)
   rake (~> 10.0)
-  rspec
+  rspec (~> 3.7.0)
 
 BUNDLED WITH
-   1.16.0
+   1.16.2
