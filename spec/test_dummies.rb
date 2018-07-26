@@ -8,7 +8,7 @@ end
 
 module DummyCloudinary
   class << self
-    %i[cloud_name api_key api_secret].each do |mtd|
+    %i[cloud_name api_key api_secret cname upload_preset].each do |mtd|
       attr_accessor mtd
     end
 
@@ -31,6 +31,10 @@ module DummyCloudinary
 
   class Utils
     def self.private_download_url(_public_id, _format, _options); end
+
+    def self.resource_type_for_format(ext)
+      %w[png pdf].include?(ext) ? 'image' : 'raw'
+    end
   end
 end
 

@@ -1,7 +1,7 @@
 RSpec.describe ActiveStorage::Service::CloudinaryService do
   let(:subject) { ActiveStorage::Service::CloudinaryService.new(config) }
   let(:key) { 'some-resource-key' }
-  let(:file) { 'some-io-object' }
+  let(:file) { double }
   let(:checksum) { 'zyxddfs' }
 
   let(:config) do
@@ -12,12 +12,23 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
     }
   end
 
-  before(:each) { stub_const('Cloudinary', DummyCloudinary) }
+  before do
+    stub_const('Cloudinary', DummyCloudinary)
+    allow(file).to receive(:extension_with_delimiter).and_return('.png')
+  end
 
   describe '#new' do
     it 'setups cloudinary sdk with the given config' do
       ActiveStorage::Service::CloudinaryService.new(config)
       config.each do |key, value|
+        expect(Cloudinary.send(key)).to eq value
+      end
+    end
+
+    it 'allows extra params' do
+      xtra = { upload_preset: 'some-preset', cname: 'some-cname' }
+      ActiveStorage::Service::CloudinaryService.new(config.merge(xtra))
+      xtra.each do |key, value|
         expect(Cloudinary.send(key)).to eq value
       end
     end
@@ -51,7 +62,7 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
   end
 
   describe '#delete' do
-    it 'calls the delete method on teh cloudinary sdk with the given args' do
+    it 'calls the delete method on the cloudinary sdk with the given args' do
       expect(Cloudinary::Uploader).to receive(:destroy).with(key)
 
       subject.delete(key)
@@ -129,25 +140,62 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
       {
         expires_in: 1000,
         disposition: 'inline',
-        filename: 'some-file-name',
+        filename: file,
         content_type: 'image/png'
-       }
+      }
     end
 
     let(:signed_options) do
-      {
-        resource_type: 'image',
-        type: 'upload',
-        attachment: false,
-       }
+      { resource_type: 'image', type: 'upload', attachment: false }
     end
 
     it 'calls the private_download_url on the cloudinary sdk' do
       expect(Cloudinary::Utils)
         .to receive(:private_download_url)
-        .with(key, nil, hash_including(signed_options))
+        .with(key, 'png', hash_including(signed_options))
 
       subject.url(key, options)
+    end
+
+    context 'raw type assets' do
+      before do
+        allow(file).to receive(:extension_with_delimiter).and_return('.docx')
+      end
+
+      it 'includes the asset format in the public key' do
+        expected = signed_options.merge(resource_type: 'raw')
+        expect(Cloudinary::Utils)
+          .to receive(:private_download_url)
+          .with(key + '.docx', 'docx', hash_including(expected))
+
+        subject.url(key, options)
+      end
+    end
+
+    context 'non raw type assets' do
+      it 'does not include the asset format in the public key' do
+        expect(Cloudinary::Utils)
+          .to receive(:private_download_url)
+          .with(key, 'png', hash_including(signed_options))
+
+        subject.url(key, options)
+      end
+    end
+
+    xcontext 'resource type' do
+      it 'defaults to image if no resource type in the options' do
+      end
+
+      it 'uses the resource type in the options' do
+      end
+    end
+
+    xcontext 'type' do
+      it 'defaults to upload if no type in the options' do
+      end
+
+      it 'uses the type in the option' do
+      end
     end
 
     it 'instruments the operation' do
@@ -163,23 +211,23 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
       {
         expires_in: 1000,
         content_type: 'image/png',
-        content_length: 123456789,
+        content_length: 123_456_789,
         checksum: checksum
-       }
+      }
     end
 
     let(:signed_options) do
       {
         resource_type: 'auto',
         type: 'upload',
-        attachment: false,
-       }
+        attachment: false
+      }
     end
 
     it 'calls the private_download_url on the cloudinary sdk' do
       expect(Cloudinary::Utils)
         .to receive(:private_download_url)
-        .with(key, nil, hash_including(signed_options))
+        .with(key, '', hash_including(signed_options))
         .and_return(
           "https://cloudinary.api/signed/url/for/#{key}/"
         )
