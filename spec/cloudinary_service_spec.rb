@@ -80,21 +80,11 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
   describe '#delete_prefixed' do
     let(:prefix) { 'some-key-prefix' }
 
-    it 'calls the resources method on the cloudinary sdk with the given prefix' do
+    it 'calls the delete_resources_by_prefix method on the cloudinary sdk' do
       expect(Cloudinary::Api)
-        .to receive(:resources)
-        .with(type: :upload, prefix: prefix)
+        .to receive(:delete_resources_by_prefix)
+        .with(prefix)
         .and_return('resources' => [])
-      subject.delete_prefixed(prefix)
-    end
-
-    it 'calls the delete method on the cloudinary sdk with the given args' do
-      allow(Cloudinary::Api)
-        .to receive(:resources)
-        .with(type: :upload, prefix: prefix)
-        .and_return('resources' => ['public_id' => prefix])
-
-      expect(Cloudinary::Uploader).to receive(:destroy).with(prefix)
       subject.delete_prefixed(prefix)
     end
 
@@ -182,22 +172,6 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
       end
     end
 
-    xcontext 'resource type' do
-      it 'defaults to image if no resource type in the options' do
-      end
-
-      it 'uses the resource type in the options' do
-      end
-    end
-
-    xcontext 'type' do
-      it 'defaults to upload if no type in the options' do
-      end
-
-      it 'uses the type in the option' do
-      end
-    end
-
     it 'instruments the operation' do
       expect_any_instance_of(ActiveStorage::Service)
         .to receive(:instrument).with(:url, key: key)
@@ -228,9 +202,7 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
       expect(Cloudinary::Utils)
         .to receive(:private_download_url)
         .with(key, '', hash_including(signed_options))
-        .and_return(
-          "https://cloudinary.api/signed/url/for/#{key}/"
-        )
+        .and_return("https://cloudinary.api/signed/url/for/#{key}/")
 
       subject.url_for_direct_upload(key, options)
     end

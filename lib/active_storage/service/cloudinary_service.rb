@@ -49,9 +49,7 @@ module ActiveStorage
     # Delete files at keys starting with the +prefix+.
     def delete_prefixed(prefix)
       instrument :delete_prefixed, prefix: prefix do
-        find_resources_with_public_id_prefix(prefix).each do |resource|
-          delete_resource_with_public_id(resource['public_id'])
-        end
+        Cloudinary::Api.delete_resources_by_prefix(prefix)
       end
     end
 
@@ -87,9 +85,15 @@ module ActiveStorage
           expires_in: expires_in,
           content_type: content_type,
           content_length: content_length,
-          checksum: checksum
+          checksum: checksum,
+          resource_type: 'auto'
         }
-        signed_upload_url_for_public_id(key, options)
+
+        # FIXME: Cloudinary Ruby SDK does't expose an api for signed upload url
+        # The expected url is similar to the private_download_url
+        # with download replaced with upload
+        signed_download_url_for_public_id(key, options)
+          .sub(/download/, 'upload')
       end
     end
 
@@ -108,37 +112,16 @@ module ActiveStorage
       Cloudinary::Api.resources_by_ids(public_id).fetch('resources')
     end
 
-    def find_resources_with_public_id_prefix(prefix)
-      Cloudinary::Api.resources(
-        type: :upload,
-        prefix: prefix
-      ).fetch('resources')
-    end
-
     def delete_resource_with_public_id(public_id)
       Cloudinary::Uploader.destroy(public_id)
     end
 
-    def url_for_public_id(public_id)
-      Cloudinary::Api.resource(public_id)['secure_url']
-    end
-
-    # FIXME: Cloudinary Ruby SDK does't expose an api for signed upload url
-    # The expected url is similar to the private_download_url
-    # with download replaced with upload
-    def signed_upload_url_for_public_id(public_id, options)
-      # allow the server to auto detect the resource_type
-      options[:resource_type] ||= 'auto'
-      signed_download_url_for_public_id(public_id, options)
-        .sub(/download/, 'upload')
-    end
-
     def signed_download_url_for_public_id(public_id, options)
-      extension = resource_format(options)
+      extension = resource_format(options[:filename])
       options[:resource_type] ||= resource_type(extension)
 
       Cloudinary::Utils.private_download_url(
-        finalize_public_id(public_id, extension, options),
+        finalize_public_id(public_id, extension, options[:resource_type]),
         extension,
         signed_url_options(options)
       )
@@ -146,8 +129,8 @@ module ActiveStorage
 
     # TODO: for assets of type raw,
     # cloudinary request the extension to be part of the public_id
-    def finalize_public_id(public_id, extension, options)
-      return public_id unless options[:resource_type] == 'raw'
+    def finalize_public_id(public_id, extension, resource_type)
+      return public_id unless resource_type == 'raw'
       public_id + '.' + extension
     end
 
@@ -160,13 +143,17 @@ module ActiveStorage
       }
     end
 
-    def resource_format(options)
-      extension = options[:filename]&.extension_with_delimiter || ''
+    def resource_format(filename)
+      extension = filename&.extension_with_delimiter || ''
       extension.sub('.', '')
     end
 
     def resource_type(extension)
       Cloudinary::Utils.resource_type_for_format(extension)
+    end
+
+    def cloudinary_url_for_key(key)
+      Cloudinary::Utils.cloudinary_url(key)
     end
   end
 end

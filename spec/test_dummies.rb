@@ -35,6 +35,10 @@ module DummyCloudinary
     def self.resource_type_for_format(ext)
       %w[png pdf].include?(ext) ? 'image' : 'raw'
     end
+
+    def self.cloudinary_url(key)
+      "https://#{key}"
+    end
   end
 end
 
