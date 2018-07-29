@@ -1,7 +1,10 @@
+require 'download_utils'
+
 RSpec.describe ActiveStorage::Service::CloudinaryService do
   let(:subject) { ActiveStorage::Service::CloudinaryService.new(config) }
   let(:key) { 'some-resource-key' }
   let(:file) { double }
+  let(:download_util) { double }
   let(:checksum) { 'zyxddfs' }
 
   let(:config) do
@@ -16,6 +19,8 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
     stub_const('Cloudinary', DummyCloudinary)
     allow(file).to receive(:extension_with_delimiter).and_return('.png')
   end
+
+  include_examples 'download utils'
 
   describe '#new' do
     it 'setups cloudinary sdk with the given config' do
@@ -52,13 +57,52 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
   end
 
   describe '#download' do
-    # it 'instruments the operation' do
-    #   options = { key: key }
-    #   expect_any_instance_of(ActiveStorage::Service)
-    #     .to receive(:instrument).with(:download, options)
-    #
-    #   subject.download(key)
-    # end
+    context 'when block is given' do
+      it 'calls the stream_download method' do
+        block = -> { 'some block' }
+
+        expect(subject).to receive(:stream_download)
+          .with('https://some-resource-key') { |&blk| expect(blk).to be(block) }
+        expect(Cloudinary::Downloader).not_to receive(:download)
+
+        subject.download(key, &block)
+      end
+    end
+
+    context 'when no block is given' do
+      it 'calls the cloudinary downloader download method' do
+        expect(Cloudinary::Downloader).to receive(:download).with(key)
+        expect(subject).not_to receive(:stream_download)
+
+        subject.download(key)
+      end
+    end
+
+    it 'instruments the operation' do
+      options = { key: key }
+      expect_any_instance_of(ActiveStorage::Service)
+        .to receive(:instrument).with(:download, options)
+
+      subject.download(key)
+    end
+  end
+
+  describe '#download_chunk' do
+    let(:range) { 1..10 }
+
+    it 'calls the download range method' do
+      expect(subject).to receive(:download_range)
+        .with('https://some-resource-key', range)
+      subject.download_chunk(key, range)
+    end
+
+    it 'instruments the operation' do
+      options = { key: key, range: range }
+      expect_any_instance_of(ActiveStorage::Service)
+        .to receive(:instrument).with(:download_chunk, options)
+
+      subject.download_chunk(key, range)
+    end
   end
 
   describe '#delete' do

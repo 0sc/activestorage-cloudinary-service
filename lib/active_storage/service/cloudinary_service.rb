@@ -1,8 +1,12 @@
 require 'cloudinary'
-require 'open-uri'
+require_relative 'download_utils'
 
 module ActiveStorage
+  # Wraps the Cloudinary as an Active Storage service.
+  # See ActiveStorage::Service for the generic API documentation that applies to all services.
   class Service::CloudinaryService < Service
+    include DownloadUtils
+
     # FIXME: implement setup for private resource type
     # FIXME: allow configuration via cloudinary url
     def initialize(cloud_name:, api_key:, api_secret:, **options)
@@ -22,20 +26,24 @@ module ActiveStorage
     end
 
     # Return the content of the file at the +key+.
-    def download(key)
-      tmp_file = open(url_for_public_id(key))
+    def download(key, &block)
       if block_given?
         instrument :streaming_download, key: key do
-          File.open(tmp_file, 'rb') do |file|
-            while (data = file.read(64.kilobytes))
-              yield data
-            end
-          end
+          source = cloudinary_url_for_key(key)
+          stream_download(source, &block)
         end
       else
         instrument :download, key: key do
-          File.binread tmp_file
+          Cloudinary::Downloader.download(key)
         end
+      end
+    end
+
+    # Return the partial content in the byte +range+ of the file at the +key+.
+    def download_chunk(key, range)
+      instrument :download_chunk, key: key, range: range do
+        source = cloudinary_url_for_key(key)
+        download_range(source, range)
       end
     end
 
