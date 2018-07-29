@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    activestorage-cloudinary-service (0.1.0)
+    activestorage-cloudinary-service (0.2.0)
 
 GEM
   remote: https://rubygems.org/
