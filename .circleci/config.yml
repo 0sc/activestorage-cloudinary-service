@@ -1,0 +1,44 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/0sc/activestorage-cloudinary-service
+    parallelism: 1
+    shell: /bin/bash --login
+    environment:
+      CIRCLE_ARTIFACTS: /tmp/circleci-artifacts
+      CIRCLE_TEST_REPORTS: /tmp/circleci-test-results
+    docker:
+      - image: circleci/ruby:2.4.2-jessie
+    steps:
+      - checkout
+      - run: mkdir -p $CIRCLE_ARTIFACTS $CIRCLE_TEST_REPORTS
+      - restore_cache:
+          keys:
+            # This branch if available
+            - v1-dep-{{ .Branch }}-
+            # Default branch if not
+            - v1-dep-master-
+            # Any branch if there are none on the default branch - this should be unnecessary if you have your default branch configured correctly
+            - v1-dep-
+      - run: echo -e "export RAILS_ENV=test\nexport RACK_ENV=test" >> $BASH_ENV
+      - run: 'bundle check --path=vendor/bundle || bundle install --path=vendor/bundle
+          --jobs=4 --retry=3'
+      - save_cache:
+          key: v1-dep-{{ .Branch }}-{{ epoch }}
+          paths:
+            # This is a broad list of cache paths to include many possible development environments
+            # You can probably delete some of these entries
+            - vendor/bundle
+            - ~/.bundle
+      - run:
+          command: bundle exec rspec --require spec_helper --format progress spec
+          environment:
+            RAILS_ENV: test
+            RACK_ENV: test
+      - store_test_results:
+          path: /tmp/circleci-test-results
+      # Save artifacts
+      - store_artifacts:
+          path: /tmp/circleci-artifacts
+      - store_artifacts:
+          path: /tmp/circleci-test-results
