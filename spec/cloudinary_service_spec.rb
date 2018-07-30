@@ -1,7 +1,10 @@
+require 'download_utils'
+
 RSpec.describe ActiveStorage::Service::CloudinaryService do
   let(:subject) { ActiveStorage::Service::CloudinaryService.new(config) }
   let(:key) { 'some-resource-key' }
   let(:file) { double }
+  let(:download_util) { double }
   let(:checksum) { 'zyxddfs' }
 
   let(:config) do
@@ -16,6 +19,8 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
     stub_const('Cloudinary', DummyCloudinary)
     allow(file).to receive(:extension_with_delimiter).and_return('.png')
   end
+
+  include_examples 'download utils'
 
   describe '#new' do
     it 'setups cloudinary sdk with the given config' do
@@ -52,13 +57,52 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
   end
 
   describe '#download' do
-    # it 'instruments the operation' do
-    #   options = { key: key }
-    #   expect_any_instance_of(ActiveStorage::Service)
-    #     .to receive(:instrument).with(:download, options)
-    #
-    #   subject.download(key)
-    # end
+    context 'when block is given' do
+      it 'calls the stream_download method' do
+        block = -> { 'some block' }
+
+        expect(subject).to receive(:stream_download)
+          .with('https://some-resource-key') { |&blk| expect(blk).to be(block) }
+        expect(Cloudinary::Downloader).not_to receive(:download)
+
+        subject.download(key, &block)
+      end
+    end
+
+    context 'when no block is given' do
+      it 'calls the cloudinary downloader download method' do
+        expect(Cloudinary::Downloader).to receive(:download).with(key)
+        expect(subject).not_to receive(:stream_download)
+
+        subject.download(key)
+      end
+    end
+
+    it 'instruments the operation' do
+      options = { key: key }
+      expect_any_instance_of(ActiveStorage::Service)
+        .to receive(:instrument).with(:download, options)
+
+      subject.download(key)
+    end
+  end
+
+  describe '#download_chunk' do
+    let(:range) { 1..10 }
+
+    it 'calls the download range method' do
+      expect(subject).to receive(:download_range)
+        .with('https://some-resource-key', range)
+      subject.download_chunk(key, range)
+    end
+
+    it 'instruments the operation' do
+      options = { key: key, range: range }
+      expect_any_instance_of(ActiveStorage::Service)
+        .to receive(:instrument).with(:download_chunk, options)
+
+      subject.download_chunk(key, range)
+    end
   end
 
   describe '#delete' do
@@ -80,21 +124,11 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
   describe '#delete_prefixed' do
     let(:prefix) { 'some-key-prefix' }
 
-    it 'calls the resources method on the cloudinary sdk with the given prefix' do
+    it 'calls the delete_resources_by_prefix method on the cloudinary sdk' do
       expect(Cloudinary::Api)
-        .to receive(:resources)
-        .with(type: :upload, prefix: prefix)
+        .to receive(:delete_resources_by_prefix)
+        .with(prefix)
         .and_return('resources' => [])
-      subject.delete_prefixed(prefix)
-    end
-
-    it 'calls the delete method on the cloudinary sdk with the given args' do
-      allow(Cloudinary::Api)
-        .to receive(:resources)
-        .with(type: :upload, prefix: prefix)
-        .and_return('resources' => ['public_id' => prefix])
-
-      expect(Cloudinary::Uploader).to receive(:destroy).with(prefix)
       subject.delete_prefixed(prefix)
     end
 
@@ -182,22 +216,6 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
       end
     end
 
-    xcontext 'resource type' do
-      it 'defaults to image if no resource type in the options' do
-      end
-
-      it 'uses the resource type in the options' do
-      end
-    end
-
-    xcontext 'type' do
-      it 'defaults to upload if no type in the options' do
-      end
-
-      it 'uses the type in the option' do
-      end
-    end
-
     it 'instruments the operation' do
       expect_any_instance_of(ActiveStorage::Service)
         .to receive(:instrument).with(:url, key: key)
@@ -228,9 +246,7 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
       expect(Cloudinary::Utils)
         .to receive(:private_download_url)
         .with(key, '', hash_including(signed_options))
-        .and_return(
-          "https://cloudinary.api/signed/url/for/#{key}/"
-        )
+        .and_return("https://cloudinary.api/signed/url/for/#{key}/")
 
       subject.url_for_direct_upload(key, options)
     end

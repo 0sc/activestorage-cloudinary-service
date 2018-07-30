@@ -27,6 +27,12 @@ module DummyCloudinary
     def self.resources(_options); end
 
     def self.resources_by_ids(_public_id); end
+
+    def self.delete_resources_by_prefix(_prefix); end
+  end
+
+  class Downloader
+    def self.download(_key); end
   end
 
   class Utils
@@ -34,6 +40,10 @@ module DummyCloudinary
 
     def self.resource_type_for_format(ext)
       %w[png pdf].include?(ext) ? 'image' : 'raw'
+    end
+
+    def self.cloudinary_url(key)
+      "https://#{key}"
     end
   end
 end
