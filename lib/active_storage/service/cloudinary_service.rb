@@ -1,3 +1,4 @@
+require 'active_support/core_ext/object/to_query'
 require 'cloudinary'
 require_relative 'download_utils'
 
@@ -84,24 +85,17 @@ module ActiveStorage
     end
 
     # Returns a signed, temporary URL that a direct upload file can be PUT to on the +key+.
-    # The URL will be valid for the amount of seconds specified in +expires_in+.
-    # You must also provide the +content_type+, +content_length+, and +checksum+ of the file
-    # that will be uploaded. All these attributes will be validated by the service upon upload.
-    def url_for_direct_upload(key, expires_in:, content_type:, content_length:, checksum:)
+    # Cloudinary's uploads does not seem to support URLs with set expiration time
+    # and does not validate content_type, content_length or checksum.
+    def url_for_direct_upload(key, _options = {})
       instrument :url_for_direct_upload, key: key do
-        options = {
-          expires_in: expires_in,
-          content_type: content_type,
-          content_length: content_length,
-          checksum: checksum,
-          resource_type: 'auto'
-        }
+        parameters = Cloudinary::Utils.sign_request(
+          public_id: key,
+          timestamp: Time.now.to_i
+        )
+        api_url = Cloudinary::Utils.cloudinary_api_url('upload', resource_type: 'auto')
 
-        # FIXME: Cloudinary Ruby SDK does't expose an api for signed upload url
-        # The expected url is similar to the private_download_url
-        # with download replaced with upload
-        signed_download_url_for_public_id(key, options)
-          .sub(/download/, 'upload')
+        "#{api_url}?#{parameters.to_query}"
       end
     end
 

@@ -16,25 +16,31 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
   end
 
   before do
-    stub_const('Cloudinary', DummyCloudinary)
     allow(file).to receive(:extension_with_delimiter).and_return('.png')
+  end
+
+  around(:each, mutates_config: true) do |example|
+    initial_config = Cloudinary.config.dup
+    example.call
+    # nil values are ignored by the .set_config method
+    Cloudinary.class_variable_set('@@config', initial_config)
   end
 
   include_examples 'download utils'
 
   describe '#new' do
-    it 'setups cloudinary sdk with the given config' do
+    it 'setups cloudinary sdk with the given config', :mutates_config do
       ActiveStorage::Service::CloudinaryService.new(config)
       config.each do |key, value|
-        expect(Cloudinary.send(key)).to eq value
+        expect(Cloudinary.config.send(key)).to eq value
       end
     end
 
-    it 'allows extra params' do
+    it 'allows extra params', :mutates_config do
       xtra = { upload_preset: 'some-preset', cname: 'some-cname' }
       ActiveStorage::Service::CloudinaryService.new(config.merge(xtra))
       xtra.each do |key, value|
-        expect(Cloudinary.send(key)).to eq value
+        expect(Cloudinary.config.send(key)).to eq value
       end
     end
   end
@@ -61,8 +67,10 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
       it 'calls the stream_download method' do
         block = -> { 'some block' }
 
-        expect(subject).to receive(:stream_download)
-          .with('https://some-resource-key') { |&blk| expect(blk).to be(block) }
+        stream_download_url = 'http://res.cloudinary.com/name/image/upload/some-resource-key'
+        expect(subject).to receive(:stream_download).with(stream_download_url) do |&blk|
+          expect(blk).to be(block)
+        end
         expect(Cloudinary::Downloader).not_to receive(:download)
 
         subject.download(key, &block)
@@ -92,7 +100,7 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
 
     it 'calls the download range method' do
       expect(subject).to receive(:download_range)
-        .with('https://some-resource-key', range)
+                     .with('http://res.cloudinary.com/name/image/upload/some-resource-key', range)
       subject.download_chunk(key, range)
     end
 
@@ -242,13 +250,16 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
       }
     end
 
-    it 'calls the private_download_url on the cloudinary sdk' do
-      expect(Cloudinary::Utils)
-        .to receive(:private_download_url)
-        .with(key, '', hash_including(signed_options))
-        .and_return("https://cloudinary.api/signed/url/for/#{key}/")
+    it 'returns a valid direct upload url' do
+      now = Time.now
+      travel_to now do
+        endpoint  = 'https://api.cloudinary.com/v1_1/name/auto/upload'
+        params    = { public_id: key, timestamp: now.to_i }
+        signature = Cloudinary::Utils.api_sign_request(params, config[:api_secret])
+        expected  = "#{endpoint}?api_key=#{config[:api_key]}&public_id=#{key}&signature=#{signature}&timestamp=#{now.to_i}"
 
-      subject.url_for_direct_upload(key, options)
+        expect(subject.url_for_direct_upload(key, options)).to eq(expected)
+      end
     end
 
     it 'instruments the operation' do
