@@ -71,7 +71,8 @@ RSpec.describe ActiveStorage::Service::CloudinaryService do
 
     context 'when no block is given' do
       it 'calls the cloudinary downloader download method' do
-        expect(Cloudinary::Downloader).to receive(:download).with(key)
+        source = DummyCloudinary::Utils.cloudinary_url(key, sign_url: true)
+        expect(Cloudinary::Downloader).to receive(:download).with(source)
         expect(subject).not_to receive(:stream_download)
 
         subject.download(key)

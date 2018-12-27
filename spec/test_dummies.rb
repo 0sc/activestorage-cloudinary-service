@@ -42,7 +42,7 @@ module DummyCloudinary
       %w[png pdf].include?(ext) ? 'image' : 'raw'
     end
 
-    def self.cloudinary_url(key)
+    def self.cloudinary_url(key, sign_url:)
       "https://#{key}"
     end
   end
