@@ -27,14 +27,15 @@ module ActiveStorage
 
     # Return the content of the file at the +key+.
     def download(key, &block)
+      source = cloudinary_url_for_key(key)
+
       if block_given?
         instrument :streaming_download, key: key do
-          source = cloudinary_url_for_key(key)
           stream_download(source, &block)
         end
       else
         instrument :download, key: key do
-          Cloudinary::Downloader.download(key)
+          Cloudinary::Downloader.download(source)
         end
       end
     end
@@ -161,7 +162,7 @@ module ActiveStorage
     end
 
     def cloudinary_url_for_key(key)
-      Cloudinary::Utils.cloudinary_url(key)
+      Cloudinary::Utils.cloudinary_url(key, sign_url: true)
     end
   end
 end
